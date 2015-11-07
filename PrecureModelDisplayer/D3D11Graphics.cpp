@@ -1,6 +1,8 @@
 #include "D3D11Graphics.h"
 #include "PrecureModelDisplayerException.h"
 
+using namespace DirectX;
+
 D3D11Graphics::D3D11Graphics(HWND hwnd)
 {
 	//Set all Pointers to NULL
@@ -13,33 +15,27 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	//Return Value
 	HRESULT hResult = NULL;
 
-	//Initialize D3D_FEATURE_LEVEL
-	D3D_FEATURE_LEVEL* d3d_feature_levels = new D3D_FEATURE_LEVEL[3];
-	d3d_feature_levels[0] = D3D_FEATURE_LEVEL_9_1;
-	d3d_feature_levels[1] = D3D_FEATURE_LEVEL_10_0;
-	d3d_feature_levels[2] = D3D_FEATURE_LEVEL_11_0;
-	//Create D3D11 Device & DeviceContext, Choose Feature Level
+	//1. Create D3D11 Device & DeviceContext
 	hResult = D3D11CreateDevice(
 		NULL,									//Default Adapter
 		D3D_DRIVER_TYPE_HARDWARE,				//Hardware Accleration
 		NULL,									//Hardware is chosen
-		D3D11_CREATE_DEVICE_SINGLETHREADED,		//Single Thread Mode is chosen
-		d3d_feature_levels,						//Array of Available D3D Feature Levels
-		3,										//Size of the above Array
+		0,										//No Optional Flags
+
+		//D3D11_CREATE_DEVICE_SINGLETHREADED,		//Single Thread Mode is chosen 
+
+		NULL,									//Array of Available D3D Feature Levels
+		0,										//Size of the above Array
 		D3D11_SDK_VERSION,						//Fixed Value
 		&device_,								//Pointer to the pointer pointed to a D3D11 Device
 		&d3d_feature_level_,					//Selected D3D Feature Level
 		&deviceContext_							//Pointer to the pointer pointed to a D3D11 DeviceContext
 		);
-	//release the array of D3D_FEATURE_LEVEL
-	delete[] d3d_feature_levels;
 	//Check the Result of Creating D3D11 Device
-	if (hResult != S_OK)
-	{
-		throw PMD_FailCreateD3D11DeviceException();
-	}
+	CheckHR(hResult, PMD_FailCreateD3D11DeviceException());
 
-	//CheckMultiSampling
+
+	//2. CheckMultiSampling
 	hResult = device_->CheckMultisampleQualityLevels(
 		DXGI_FORMAT_R8G8B8A8_UNORM,
 		4,								//4x
@@ -51,7 +47,8 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 		supportNumMSQualityLevel_ = 0;
 	}
 
-	//Create SwapChain
+
+	//3. Create SwapChain
 	RECT window_rect;
 	if (GetWindowRect(hwnd, &window_rect) == FALSE)
 	{
@@ -73,6 +70,10 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	swap_chain_desc.BufferDesc = mode_desc;
 	swap_chain_desc.BufferCount = 1; //only 1 Buffer used
 	swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; //used for render target output
+	swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+	swap_chain_desc.OutputWindow = hwnd;
+	swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	swap_chain_desc.Windowed = !FULL_SCREEN;
 	//MultiSampling
 	if (supportNumMSQualityLevel_ == 0)
 	{
@@ -85,82 +86,35 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 		swap_chain_desc.SampleDesc.Count = 4; //4 sampling point
 		swap_chain_desc.SampleDesc.Quality = supportNumMSQualityLevel_ - 1;
 	}
-	swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-	swap_chain_desc.OutputWindow = hwnd;
-	swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-	swap_chain_desc.Windowed = !FULL_SCREEN;
 
 	IDXGIDevice* pIDXGIDevice = NULL;
 	IDXGIAdapter* pIDXGIAdapter = NULL;
 	IDXGIFactory* pIDXGIFactory = NULL;
 	hResult = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&pIDXGIDevice));
-	if (hResult != S_OK)
-	{
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		SafeRelease(pIDXGIDevice);
-		SafeRelease(pIDXGIAdapter);
-		SafeRelease(pIDXGIFactory);
-		throw PMD_FailCreateSwapChainException();
-	}
+	CheckHR(hResult, PMD_FailCreateSwapChainException());
 	hResult = pIDXGIDevice->GetParent(__uuidof(IDXGIAdapter), reinterpret_cast<void**>(&pIDXGIAdapter));
-	if (hResult != S_OK)
-	{
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		SafeRelease(pIDXGIDevice);
-		SafeRelease(pIDXGIAdapter);
-		SafeRelease(pIDXGIFactory);
-		throw PMD_FailCreateSwapChainException();
-	}
+	CheckHR(hResult, PMD_FailCreateSwapChainException());
 	hResult = pIDXGIAdapter->GetParent(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pIDXGIFactory));
-	if (hResult != S_OK)
-	{
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		SafeRelease(pIDXGIDevice);
-		SafeRelease(pIDXGIAdapter);
-		SafeRelease(pIDXGIFactory);
-		throw PMD_FailCreateSwapChainException();
-	}
+	CheckHR(hResult, PMD_FailCreateSwapChainException());
 	hResult = pIDXGIFactory->CreateSwapChain(device_, &swap_chain_desc, &swapChain_);
-	if (hResult != S_OK)
-	{
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		SafeRelease(pIDXGIDevice);
-		SafeRelease(pIDXGIAdapter);
-		SafeRelease(pIDXGIFactory);
-		throw PMD_FailCreateSwapChainException();
-	}
+	CheckHR(hResult, PMD_FailCreateSwapChainException());
+
 	SafeRelease(pIDXGIDevice);
 	SafeRelease(pIDXGIAdapter);
 	SafeRelease(pIDXGIFactory);
 
-	//Create RenderTargetView
+
+	//4. Create RenderTargetView
 	ID3D11Texture2D* backBuffer;
 	hResult = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**> (&backBuffer)); //GetBuffer() will increase the COM reference count
-	if (hResult != S_OK)
-	{
-		SafeRelease(swapChain_);
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		throw PMD_FailCreateRenderTargetViewException();
-	}
-
+	CheckHR(hResult, PMD_FailCreateRenderTargetViewException());
 	hResult = device_->CreateRenderTargetView(backBuffer, NULL, &renderTargetView_);
-	if (hResult != S_OK)
-	{
-		SafeRelease(backBuffer);
-		SafeRelease(swapChain_);
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		throw PMD_FailCreateRenderTargetViewException();
-	}
+	CheckHR(hResult, PMD_FailCreateRenderTargetViewException());
 	//Release
 	SafeRelease(backBuffer); //Decrease the COM reference count
 
-	//Create DepthStencilView
+
+	//5. Create DepthStencilView
 	D3D11_TEXTURE2D_DESC texture2d_desc;
 	texture2d_desc.ArraySize = 1;							//Used for Texture Array. NOT useful here
 	texture2d_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;	//Binding type
@@ -170,6 +124,7 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	texture2d_desc.Width = window_rect.right - window_rect.left;
 	texture2d_desc.MipLevels = 1;							//Not use Mipmap
 	texture2d_desc.MiscFlags = 0;
+	texture2d_desc.Usage = D3D11_USAGE_DEFAULT;				//For GPU Read & Write
 	//MultiSampling
 	if (supportNumMSQualityLevel_ == 0)
 	{
@@ -182,33 +137,16 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 		texture2d_desc.SampleDesc.Count = 4; //4 sampling point
 		texture2d_desc.SampleDesc.Quality = supportNumMSQualityLevel_ - 1;
 	}
-	texture2d_desc.Usage = D3D11_USAGE_DEFAULT;				//For GPU Read & Write
-
+	
 	hResult = device_->CreateTexture2D(&texture2d_desc, NULL, &stencilBuffer_);
-	if (hResult != S_OK)
-	{
-		SafeRelease(renderTargetView_);
-		SafeRelease(swapChain_);
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		throw PMD_FailCreateDepthStencilViewException();
-	}
-
+	CheckHR(hResult, PMD_FailCreateDepthStencilViewException());
 	hResult = device_->CreateDepthStencilView(stencilBuffer_, NULL, &depthStencilView_);
-	if (hResult != S_OK)
-	{
-		SafeRelease(stencilBuffer_);
-		SafeRelease(renderTargetView_);
-		SafeRelease(swapChain_);
-		SafeRelease(device_);
-		SafeRelease(deviceContext_);
-		throw PMD_FailCreateDepthStencilViewException();
-	}
-
+	CheckHR(hResult, PMD_FailCreateDepthStencilViewException());
 	//Bind to Rendering Pipeline
 	deviceContext_->OMSetRenderTargets(1, &renderTargetView_, depthStencilView_);
 
-	//Set ViewPoint
+
+	//6. Set ViewPoint
 	D3D11_VIEWPORT viewpoint;
 	//#####WARNNING
 	viewpoint.Width = static_cast<FLOAT>(window_rect.right - window_rect.left);
@@ -233,17 +171,9 @@ D3D11Graphics::~D3D11Graphics()
 
 void D3D11Graphics::Render()
 {
-	DirectX::XMVECTORF32 color = { 0.f, 1.f, 0.f, 1.6f };
+	XMVECTORF32 color = { 0.0f, 1.0f, 0.f, 1.0f };
 	deviceContext_->ClearRenderTargetView(renderTargetView_, reinterpret_cast<float*>(&color));
 	deviceContext_->ClearDepthStencilView(depthStencilView_, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
 	swapChain_->Present(0, 0);
-}
-
-void D3D11Graphics::SafeRelease(IUnknown* pObject)
-{
-	if (pObject != NULL)
-	{
-		pObject->Release();
-	}
 }

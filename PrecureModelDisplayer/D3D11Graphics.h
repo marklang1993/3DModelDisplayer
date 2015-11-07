@@ -11,6 +11,11 @@
 #define FAR_POINT 1.0f;
 #define NEAR_POINT 0.0f;
 
+//Some Macros
+#define SafeRelease(pCOM) { if (pCOM != NULL) { pCOM->Release(); pCOM = NULL; } }
+#define SafeDelete(p) { if (p != NULL) {delete p; p = NULL; } }
+#define CheckHR(hResult, e) { if (hResult != S_OK) {throw e; } }
+
 class D3D11Graphics
 {
 public: 
@@ -18,7 +23,7 @@ public:
 	~D3D11Graphics();
 	void Render();
 
-	static void SafeRelease(IUnknown* pObject);
+	//static void SafeRelease(IUnknown* pObject);
 
 private:
 	D3D_FEATURE_LEVEL d3d_feature_level_;
