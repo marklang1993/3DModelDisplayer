@@ -26,8 +26,18 @@ class PMD_FailCreateRenderTargetViewException : public PrecureModelDisplayerExce
 {
 };
 
-//Exveption : Failed to Create DepthStencilView
+//Exception : Failed to Create DepthStencilView
 class PMD_FailCreateDepthStencilViewException : public PrecureModelDisplayerException
+{
+};
+
+//Exception : Failed to Query Performance Frequency
+class PMD_FailedQueryPerformanceFrequency : public PrecureModelDisplayerException
+{
+};
+
+//Exception : Failed to Query Performance Counter
+class PMD_FailedQueryPerformanceCounter : public PrecureModelDisplayerException
 {
 };
 
