@@ -14,7 +14,7 @@ void GameTimer::Start()
 {
 	bool Result = false;
 	//Check Status
-	if (_active = false)
+	if (_active == false)
 	{
 		//Active the Timer
 		//Initialize Start Time Count
@@ -29,7 +29,7 @@ void GameTimer::Start()
 		_running = true;
 		_active = true;
 	}
-	else if (_running = false)
+	else if (_running == false)
 	{
 		//Resume from pausing
 		//Accumulate the length of pausing in count
@@ -102,8 +102,7 @@ double GameTimer::getDeltaTime() const
 			return 0.0;
 		}
 		//Calculate the time interval in ms
-		double result = difference / _frequency;
-		result *= 1000.0;
+		double result = 1000 * difference / _frequency;
 
 		return result;
 	}

@@ -2,17 +2,20 @@
 #define DISPLAYFORM_H
 
 #include "Windows.h"
+#include "D3D11Graphics.h"
 
 class DisplayForm
 {
+
 public:
-	DisplayForm(HINSTANCE hInstance, int nCmdShow, WNDPROC msgProcessor); // Constructor: (default) 800*600
-	DisplayForm(HINSTANCE hInstance, int nCmdShow, WNDPROC msgProcessor, int window_Width, int window_Height); // Constructor: Given size
-	~DisplayForm();			// Destructor
+	DisplayForm(HINSTANCE hInstance, int nCmdShow, int window_Width, int window_Height);	// Constructor: Given size
+	~DisplayForm();																			// Destructor
 
-	void startMsgLoop();	// Start Message Loop
+	void startMsgLoop();																	// Start Message Loop
+	LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);		// Windows Message Processing Function
 
-	HWND get_HWND();		// Accessor - Handle of Window
+	HWND getHWND();																			// Accessor - Handle of Window
+	void setGraphics(D3D11Graphics* pGraphics);												// Mutator - Pointer to D3DX11 Graphics
 
 private:
 	//Windows API parameters
@@ -20,12 +23,13 @@ private:
 	int nCmdShow_;
 	HWND hWindow_;
 	WNDCLASS wndWindow_;
-	WNDPROC msgProcessor_;
 	//Screen & Window size
 	int screenWidth_;
 	int screenHeight_;
 	int window_Width_;
 	int window_Height_;
+	//D3DX11 Graphics
+	D3D11Graphics* pGraphics_;
 
 	void newWindow_();		// Helper Function - Initialize Window
 };

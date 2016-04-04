@@ -1,28 +1,27 @@
 #include "DisplayForm.h"
 #include "PrecureModelDisplayerException.h"
 
-DisplayForm::DisplayForm(HINSTANCE hInstance, int nCmdShow, WNDPROC msgProcessor)
+
+//Global Message Process Function
+DisplayForm* MainForm = NULL;
+LRESULT CALLBACK MsgProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
-	//Set Handle of Instance
-	this->hInstance_ = hInstance;
-	this->nCmdShow_ = nCmdShow;
-	this->msgProcessor_ = msgProcessor;
-	//default size 800*600
-	this->window_Width_ = 800;
-	this->window_Height_ = 600;
-	//Initialize
-	newWindow_();
+	return MainForm->WndProc(hwnd, message, wparam, lparam);
 }
 
-DisplayForm::DisplayForm(HINSTANCE hInstance, int nCmdShow, WNDPROC msgProcessor, int window_Width, int window_Height)
+
+DisplayForm::DisplayForm(HINSTANCE hInstance, int nCmdShow, int window_Width, int window_Height)
 {
+	//Initialize Global Message Process Function
+	MainForm = this;
+	//Set Pointer to D3DX11 Graphics
+	pGraphics_ = NULL;
 	//Set Handle of Instance
-	this->hInstance_ = hInstance;
-	this->nCmdShow_ = nCmdShow;
-	this->msgProcessor_ = msgProcessor;
+	hInstance_ = hInstance;
+	nCmdShow_ = nCmdShow;
 	//Set Window Size
-	this->window_Width_ = window_Width;
-	this->window_Height_ = window_Height;
+	window_Width_ = window_Width;
+	window_Height_ = window_Height;
 	//Initialize
 	newWindow_();
 }
@@ -37,20 +36,54 @@ DisplayForm::~DisplayForm()
 
 void DisplayForm::startMsgLoop()
 {
-	MSG msg;
+	MSG msg = {0};
 	//Message Loop
-	while (GetMessage(&msg, NULL, 0, 0))
+	while (msg.message != WM_QUIT)
 	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+		//There are some messages needed to be processed
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else
+		{
+			//Do Drawing
+			pGraphics_->Render();
+			
+		}
 	}
 }
 
-HWND DisplayForm::get_HWND()
+LRESULT DisplayForm::WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
+{
+	switch (message)
+	{
+	case WM_DESTROY: // Close
+		PostQuitMessage(0);
+		break;
+	case WM_LBUTTONDOWN: // Mouse: Left Button Down
+		
+		break;
+	case WM_RBUTTONDOWN: // Mouse: Right Button Down
+		PostQuitMessage(0);
+		break;
+	case WM_MOUSEWHEEL: // Mouse: Wheel Rotate
+		GET_WHEEL_DELTA_WPARAM(wparam);
+		break;
+	}
+	return DefWindowProc(hwnd, message, wparam, lparam);
+}
+
+HWND DisplayForm::getHWND()
 {
 	return this->hWindow_;
 }
 
+void DisplayForm::setGraphics(D3D11Graphics* pGraphics)
+{
+	pGraphics_ = pGraphics;
+}
 
 void DisplayForm::newWindow_()
 {
@@ -64,7 +97,7 @@ void DisplayForm::newWindow_()
 	wndWindow_.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wndWindow_.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	wndWindow_.hInstance = hInstance_;
-	wndWindow_.lpfnWndProc = msgProcessor_;
+	wndWindow_.lpfnWndProc = MsgProc;
 	wndWindow_.lpszClassName = L"PrecureModelDisplayer";
 	wndWindow_.lpszMenuName = NULL;
 	wndWindow_.style = CS_HREDRAW | CS_VREDRAW;
