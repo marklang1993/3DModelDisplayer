@@ -1,6 +1,7 @@
 #include "DisplayForm.h"
 #include "PrecureModelDisplayerException.h"
 
+#include <sstream>
 
 //Global Message Process Function
 DisplayForm* MainForm = NULL;
@@ -16,6 +17,11 @@ DisplayForm::DisplayForm(HINSTANCE hInstance, int nCmdShow, int window_Width, in
 	MainForm = this;
 	//Set Pointer to D3DX11 Graphics
 	pGraphics_ = NULL;
+	//Initialize Timer
+	timer_ = new GameTimer();
+	waitInterval_ = 0.0;
+	timer_->Start();
+
 	//Set Handle of Instance
 	hInstance_ = hInstance;
 	nCmdShow_ = nCmdShow;
@@ -32,6 +38,8 @@ DisplayForm::~DisplayForm()
 	DestroyWindow(hWindow_);
 	hWindow_ = NULL;
 	UnregisterClass(L"PrecureModelDisplayer", hInstance_);
+	//Others
+	delete timer_;
 }
 
 void DisplayForm::startMsgLoop()
@@ -50,7 +58,29 @@ void DisplayForm::startMsgLoop()
 		{
 			//Do Drawing
 			pGraphics_->Render();
-			
+			//Calculate FPS
+			timer_->Tick();
+			if (waitInterval_ > 500.0)
+			{
+				//Update FPS
+				double currentInterval = timer_->getDeltaTime();
+				double FPS = 1000.0 / currentInterval;
+				//Preparing Text
+				std::wostringstream FPS_woss;
+				FPS_woss.precision(6);
+				FPS_woss << L"FPS: ";
+				FPS_woss << FPS;
+				//Display
+				SetWindowText(hWindow_, FPS_woss.str().c_str());
+				//Reset
+				waitInterval_ = 0.0;
+			}
+			else
+			{
+				//Wait
+				waitInterval_ += timer_->getDeltaTime();
+			}
+
 		}
 	}
 }

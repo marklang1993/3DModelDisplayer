@@ -102,7 +102,7 @@ double GameTimer::getDeltaTime() const
 			return 0.0;
 		}
 		//Calculate the time interval in ms
-		double result = 1000 * difference / _frequency;
+		double result = (double)(1000 * difference) / (double)_frequency;
 
 		return result;
 	}

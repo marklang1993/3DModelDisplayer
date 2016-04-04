@@ -1,8 +1,10 @@
 #ifndef DISPLAYFORM_H
 #define DISPLAYFORM_H
 
-#include "Windows.h"
 #include "D3D11Graphics.h"
+#include "GameTimer.h"
+
+#include "Windows.h"
 
 class DisplayForm
 {
@@ -30,6 +32,9 @@ private:
 	int window_Height_;
 	//D3DX11 Graphics
 	D3D11Graphics* pGraphics_;
+	//Timer
+	GameTimer* timer_;
+	double waitInterval_;		//Waiting time of updating FPS
 
 	void newWindow_();		// Helper Function - Initialize Window
 };

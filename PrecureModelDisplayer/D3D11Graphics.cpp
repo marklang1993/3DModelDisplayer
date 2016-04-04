@@ -236,7 +236,7 @@ void D3D11Graphics::Render()
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
 		effectTechnique_->GetPassByIndex(p)->Apply(0, deviceContext_);
-		deviceContext_->DrawIndexed(12, 0, 0);
+		deviceContext_->DrawIndexed(36, 0, 0);
 	}
 
 	swapChain_->Present(0, 0);
@@ -315,8 +315,6 @@ void D3D11Graphics::initializeVertexBuffer_()
 
 	D3D11_SUBRESOURCE_DATA subresourceData;
 	subresourceData.pSysMem = vertex;
-	subresourceData.SysMemPitch = 0;
-	subresourceData.SysMemSlicePitch = 0;
 
 	CheckHR(device_->CreateBuffer(&bufferDesc, &subresourceData, &vertexBuffer_), PMD_FailedCreateBuffer());
 
@@ -372,8 +370,6 @@ void D3D11Graphics::initializeIndexBuffer_()
 
 	D3D11_SUBRESOURCE_DATA subresourceData;
 	subresourceData.pSysMem = index;
-	subresourceData.SysMemPitch = 0;
-	subresourceData.SysMemSlicePitch = 0;
 
 	CheckHR(device_->CreateBuffer(&bufferDesc, &subresourceData, &indexBuffer_), PMD_FailedCreateBuffer());
 
@@ -388,7 +384,7 @@ void D3D11Graphics::initializeMatrix_()
 	DirectX::XMStoreFloat4x4(&mWorld_, mIdentity);
 
 	//View
-	XMVECTOR eyePosition = XMVectorSet(5.0f, 3.0f, -10.0f, 1.0f);
+	XMVECTOR eyePosition = XMVectorSet(5.0f, 3.0f, 10.0f, 1.0f);
 	XMVECTOR focusPoint = XMVectorZero();
 	XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMMATRIX mView = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
