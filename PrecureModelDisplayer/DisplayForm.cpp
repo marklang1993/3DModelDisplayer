@@ -2,6 +2,7 @@
 #include "PrecureModelDisplayerException.h"
 
 #include <sstream>
+#include <windowsx.h>
 
 //Global Message Process Function
 DisplayForm* MainForm = NULL;
@@ -89,18 +90,30 @@ LRESULT DisplayForm::WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
 {
 	switch (message)
 	{
-	case WM_DESTROY: // Close
+	case WM_DESTROY:		// Close
 		PostQuitMessage(0);
 		break;
-	case WM_LBUTTONDOWN: // Mouse: Left Button Down
-		
+
+	case WM_MOUSEMOVE:		// Mouse: Move
+		OnMouseMove(wparam, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
 		break;
-	case WM_RBUTTONDOWN: // Mouse: Right Button Down
+
+	case WM_LBUTTONUP:		// Mouse: Left Button Up
+		OnMouseUp(wparam, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+		break;
+
+	case WM_LBUTTONDOWN:	// Mouse: Left Button Down
+		OnMouseDown(wparam, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+		break;
+
+	case WM_RBUTTONDOWN:	// Mouse: Right Button Down
 		PostQuitMessage(0);
 		break;
-	case WM_MOUSEWHEEL: // Mouse: Wheel Rotate
-		GET_WHEEL_DELTA_WPARAM(wparam);
+
+	case WM_MOUSEWHEEL:		// Mouse: Wheel Rotate
+		OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wparam));
 		break;
+
 	}
 	return DefWindowProc(hwnd, message, wparam, lparam);
 }
@@ -144,4 +157,64 @@ void DisplayForm::newWindow_()
 	//Show AND Update Window
 	ShowWindow(hWindow_, nCmdShow_);
 	UpdateWindow(hWindow_);
+}
+
+void DisplayForm::OnMouseUp(WPARAM button, int x, int y)
+{
+	ReleaseCapture();
+}
+
+void DisplayForm::OnMouseDown(WPARAM button, int x, int y)
+{
+	initMousPos_.x = x;
+	initMousPos_.y = y;
+	SetCapture(hWindow_);
+}
+
+void DisplayForm::OnMouseMove(WPARAM button, int x, int y)
+{
+	if (button & MK_LBUTTON)
+	{
+		//Mouse Left Button Down
+		POINT deltaMousePos;
+		deltaMousePos.x = x - initMousPos_.x;
+		deltaMousePos.y = -(y - initMousPos_.y);
+		//Change Camera Position
+		int rCamera;
+		int alphaCamera;
+		int betaCamera;
+		pGraphics_->getCameraPos(rCamera, alphaCamera, betaCamera);
+		//Rollback
+		alphaCamera = (alphaCamera + (int)(deltaMousePos.x / 60.0)) % 360;
+		betaCamera = (betaCamera + (int)(deltaMousePos.y / 60.0)) % 360;
+		pGraphics_->setCameraPos(rCamera, alphaCamera, betaCamera);
+	}
+}
+
+void DisplayForm::OnMouseWheel(int val)
+{
+	//Get Current Camera Position
+	int rCamera;
+	int alphaCamera;
+	int betaCamera;
+	pGraphics_->getCameraPos(rCamera, alphaCamera, betaCamera);
+	//Check Bound
+	if (val > 0)		//Up: Zoom In
+	{
+		//Change Camera Position
+		if (rCamera > 1)
+		{
+			--rCamera;
+		}
+	}
+	else if (val < 0)	//Up: Zoom Out
+	{
+		//Change Camera Position
+		if (rCamera < 200)
+		{
+			++rCamera;
+		}
+	}
+	//Set New Camera Position
+	pGraphics_->setCameraPos(rCamera, alphaCamera, betaCamera);
 }

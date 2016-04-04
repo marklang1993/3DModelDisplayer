@@ -34,9 +34,18 @@ private:
 	D3D11Graphics* pGraphics_;
 	//Timer
 	GameTimer* timer_;
-	double waitInterval_;		//Waiting time of updating FPS
+	double waitInterval_;		// Waiting time of updating FPS
+	//Mouse Move
+	POINT initMousPos_;
 
-	void newWindow_();		// Helper Function - Initialize Window
+	//Helper Functions
+	void newWindow_();			// Initialize Window
+
+	//Event Handler
+	void OnMouseUp(WPARAM button, int x, int y);
+	void OnMouseDown(WPARAM button, int x, int y);
+	void OnMouseMove(WPARAM button, int x, int y);
+	void OnMouseWheel(int val);
 };
 
 

@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <fstream>
+#include "math.h"
 
 using namespace DirectX;
 
@@ -242,7 +243,39 @@ void D3D11Graphics::Render()
 	swapChain_->Present(0, 0);
 }
 
+void D3D11Graphics::getCameraPos(int& rCamera, int& alphaCamera, int& betaCamera)
+{
+	rCamera = rCamera_;
+	alphaCamera = alphaCamera_ / (PI / 180.0);
+	betaCamera = betaCamera_ / (PI / 180.0);
+}
 
+void D3D11Graphics::setCameraPos(int rCamera, int alphaCamera, int betaCamera)
+{
+	//Check Beta angle(Degree: -80 <= betaCamera <= 80)
+	if (betaCamera > 80)
+	{
+		betaCamera = 80;
+	}
+	else if (betaCamera < -80)
+	{
+		betaCamera = -80;
+	}
+	//Calculate
+	rCamera_ = rCamera;
+	alphaCamera_ = (double)alphaCamera * (PI / 180.0);
+	betaCamera_ = (double)betaCamera * (PI / 180.0);
+	
+	XMVECTOR cameraPos = XMVectorSet(
+		rCamera_ * cos(betaCamera_) * cos(alphaCamera_), 
+		rCamera_ * sin(betaCamera_), 
+		rCamera_ * cos(betaCamera_) * sin(alphaCamera_),
+		1.0f);
+	XMVECTOR focusPoint = XMVectorZero();
+	XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMMATRIX mView = XMMatrixLookAtLH(cameraPos, focusPoint, upDirection);
+	DirectX::XMStoreFloat4x4(&mView_, mView);
+}
 
 void D3D11Graphics::initializeEffect_()
 {
@@ -384,11 +417,7 @@ void D3D11Graphics::initializeMatrix_()
 	DirectX::XMStoreFloat4x4(&mWorld_, mIdentity);
 
 	//View
-	XMVECTOR eyePosition = XMVectorSet(5.0f, 3.0f, 10.0f, 1.0f);
-	XMVECTOR focusPoint = XMVectorZero();
-	XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMMATRIX mView = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
-	DirectX::XMStoreFloat4x4(&mView_, mView);
+	setCameraPos(10, -270, 30);
 
 	//Projection
 	XMMATRIX mProjection = XMMatrixPerspectiveFovLH(0.25f * PI, windowWidth_ / windowHeight_, 1.0f, 1000.0f);
