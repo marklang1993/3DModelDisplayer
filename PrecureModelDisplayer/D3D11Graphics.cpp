@@ -1,5 +1,9 @@
 #include "D3D11Graphics.h"
 #include "PrecureModelDisplayerException.h"
+#include "Library.h"
+
+#include <vector>
+#include <fstream>
 
 using namespace DirectX;
 
@@ -12,6 +16,15 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	renderTargetView_ = NULL;
 	stencilBuffer_ = NULL;
 	depthStencilView_ = NULL;
+
+	effect_ = NULL;
+	effectTechnique_ = NULL;
+
+	inputLayout_ = NULL;
+	vertexBuffer_ = NULL;
+	indexBuffer_ = NULL;
+
+
 	//Return Value
 	HRESULT hResult = NULL;
 
@@ -149,14 +162,30 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	//6. Set ViewPoint
 	D3D11_VIEWPORT viewpoint;
 	//#####WARNNING
-	viewpoint.Width = static_cast<FLOAT>(window_rect.right - window_rect.left);
-	viewpoint.Height = static_cast<FLOAT>(window_rect.bottom - window_rect.top);
+	windowWidth_ = static_cast<FLOAT>(window_rect.right - window_rect.left);
+	windowHeight_ = static_cast<FLOAT>(window_rect.bottom - window_rect.top);
+	
+	viewpoint.Width = windowWidth_;
+	viewpoint.Height = windowHeight_;
 	viewpoint.TopLeftX = 0.0f;
 	viewpoint.TopLeftY = 0.0f;
 	viewpoint.MinDepth = NEAR_POINT;
 	viewpoint.MaxDepth = FAR_POINT;
 
 	deviceContext_->RSSetViewports(1, &viewpoint);
+
+	//7. Initialize Effect
+	initializeEffect_();
+
+	//8. Initialize InputLayout
+	initializeInputLayout_();
+
+	//9. Initialize Buffer
+	initializeVertexBuffer_();
+	initializeIndexBuffer_();
+
+	//10. Initilize Matrix
+	initializeMatrix_();
 }
 
 D3D11Graphics::~D3D11Graphics()
@@ -167,13 +196,208 @@ D3D11Graphics::~D3D11Graphics()
 	SafeRelease(renderTargetView_);
 	SafeRelease(stencilBuffer_);
 	SafeRelease(depthStencilView_);
+
+	SafeRelease(effect_);
+	//SafeRelease(effectTechnique_);
+
+	SafeRelease(inputLayout_);
+	SafeRelease(vertexBuffer_);
+	SafeRelease(indexBuffer_);
 }
 
 void D3D11Graphics::Render()
 {
-	XMVECTORF32 color = { 0.0f, 1.0f, 0.f, 1.0f };
-	deviceContext_->ClearRenderTargetView(renderTargetView_, reinterpret_cast<float*>(&color));
+	//Clear Screen
+	deviceContext_->ClearRenderTargetView(renderTargetView_, reinterpret_cast<float*>(&Colors::White));
 	deviceContext_->ClearDepthStencilView(depthStencilView_, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
+	//Calculate Matrix WVP
+	mWVP_ = XMLoadFloat4x4(&mWorld_) * XMLoadFloat4x4(&mView_) * XMLoadFloat4x4(&mProjection_);
+	//Bind Vertex Buffer
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	deviceContext_->IASetVertexBuffers(0, 1, &vertexBuffer_, &stride, &offset);
+	//Bind Index Buffer
+	deviceContext_->IASetIndexBuffer(indexBuffer_, DXGI_FORMAT_R32_UINT, 0);
+
+	//Set InputLayout
+	deviceContext_->IASetInputLayout(inputLayout_);
+	//Set Topology
+	deviceContext_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	//Set WVP Matrix
+	ID3DX11EffectMatrixVariable* effectMatrixVariable;
+	effectMatrixVariable = effect_->GetVariableByName("matrixWVP")->AsMatrix();
+	effectMatrixVariable->SetMatrix(reinterpret_cast<float*>(&mWVP_));
+	SafeRelease(effectMatrixVariable);
+
+	D3DX11_TECHNIQUE_DESC techDesc;
+	effectTechnique_->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		effectTechnique_->GetPassByIndex(p)->Apply(0, deviceContext_);
+		deviceContext_->DrawIndexed(12, 0, 0);
+	}
+
 	swapChain_->Present(0, 0);
+}
+
+
+
+void D3D11Graphics::initializeEffect_()
+{
+	using namespace std;
+	
+	//Read fxo File
+	ifstream fxo;
+	fxo.open("HLSL\\Shader.fxo", ios_base::binary);
+	//If fxo file failed to open
+	if (fxo.fail())
+	{
+		throw PMD_FailedInitializeEffect();
+	}
+	fxo.seekg(0, std::ios_base::end);
+	int length = (int)fxo.tellg();
+	fxo.seekg(0, std::ios_base::beg);
+
+	vector<char> fxo_binary(length);
+	fxo.read(&fxo_binary[0], length);
+
+	CheckHR(D3DX11CreateEffectFromMemory(&fxo_binary[0], length, 0, device_, &effect_), PMD_FailedInitializeEffect());
+
+	effectTechnique_ = effect_->GetTechniqueByName("Tech");		//Corresponding to Shader.fx
+}
+
+void D3D11Graphics::initializeInputLayout_()
+{
+	D3D11_INPUT_ELEMENT_DESC inputElementDesc[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+
+	D3DX11_PASS_DESC passDesc;
+	effectTechnique_->GetPassByIndex(0)->GetDesc(&passDesc);
+
+	CheckHR(device_->CreateInputLayout(inputElementDesc, 2, passDesc.pIAInputSignature, passDesc.IAInputSignatureSize, &inputLayout_), PMD_FailedCreateInputLayout())
+
+	//deviceContext_->IASetInputLayout(inputLayout_);
+}
+
+void D3D11Graphics::initializeVertexBuffer_()
+{
+	//Defein Vertex
+	Vertex vertex[]=
+	{
+		/*{ XMFLOAT3(1.0f, 0.0f, 0.0f), *(const XMFLOAT4*)&Colors::Red },
+		{ XMFLOAT3(0.0f, 0.0f, 0.0f), *(const XMFLOAT4*)&Colors::Green },
+		{ XMFLOAT3(0.0f, 1.0f, 0.0f), *(const XMFLOAT4*)&Colors::Blue },
+		{ XMFLOAT3(0.0f, 0.0f, 0.1f), *(const XMFLOAT4*)&Colors::Yellow }*/
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), *(const XMFLOAT4*)&Colors::White },
+		{ XMFLOAT3(-1.0f, +1.0f, -1.0f), *(const XMFLOAT4*)&Colors::Black },
+		{ XMFLOAT3(+1.0f, +1.0f, -1.0f), *(const XMFLOAT4*)&Colors::Red },
+		{ XMFLOAT3(+1.0f, -1.0f, -1.0f), *(const XMFLOAT4*)&Colors::Green },
+		{ XMFLOAT3(-1.0f, -1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Blue },
+		{ XMFLOAT3(-1.0f, +1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Yellow },
+		{ XMFLOAT3(+1.0f, +1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Red },
+		{ XMFLOAT3(+1.0f, -1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Green }
+	};
+
+	//Create Vertex Buffer
+	D3D11_BUFFER_DESC bufferDesc;
+	bufferDesc.ByteWidth = sizeof(Vertex) * 8;
+	bufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bufferDesc.CPUAccessFlags = 0;
+	bufferDesc.MiscFlags = 0;
+	bufferDesc.StructureByteStride = 0;
+
+	D3D11_SUBRESOURCE_DATA subresourceData;
+	subresourceData.pSysMem = vertex;
+	subresourceData.SysMemPitch = 0;
+	subresourceData.SysMemSlicePitch = 0;
+
+	CheckHR(device_->CreateBuffer(&bufferDesc, &subresourceData, &vertexBuffer_), PMD_FailedCreateBuffer());
+
+	////Bind Vertex Buffer
+	//UINT stride = sizeof(Vertex);
+	//UINT offset = 0;
+	//deviceContext_->IASetVertexBuffers(0, 1, &vertexBuffer_, &stride, &offset);
+}
+
+void D3D11Graphics::initializeIndexBuffer_()
+{
+	//Define Index
+	UINT index[] =
+	{
+		/*0, 1, 2,
+		0, 1, 3,
+		0, 3, 2,
+		1, 2, 3*/
+
+		// front face
+		0, 1, 2,
+		0, 2, 3,
+
+		// back face
+		4, 6, 5,
+		4, 7, 6,
+
+		// left face
+		4, 5, 1,
+		4, 1, 0,
+
+		// right face
+		3, 2, 6,
+		3, 6, 7,
+
+		// top face
+		1, 5, 6,
+		1, 6, 2,
+
+		// bottom face
+		4, 0, 3,
+		4, 3, 7
+	};
+	
+	//Create Index Buffer
+	D3D11_BUFFER_DESC bufferDesc;
+	bufferDesc.ByteWidth = sizeof(UINT) * 36;
+	bufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	bufferDesc.CPUAccessFlags = 0;
+	bufferDesc.MiscFlags = 0;
+	bufferDesc.StructureByteStride = 0;
+
+	D3D11_SUBRESOURCE_DATA subresourceData;
+	subresourceData.pSysMem = index;
+	subresourceData.SysMemPitch = 0;
+	subresourceData.SysMemSlicePitch = 0;
+
+	CheckHR(device_->CreateBuffer(&bufferDesc, &subresourceData, &indexBuffer_), PMD_FailedCreateBuffer());
+
+	////Bind Index Buffer
+	//deviceContext_->IASetIndexBuffer(indexBuffer_, DXGI_FORMAT_R32_UINT, 0);
+}
+
+void D3D11Graphics::initializeMatrix_()
+{
+	//World
+	XMMATRIX mIdentity = XMMatrixIdentity();
+	DirectX::XMStoreFloat4x4(&mWorld_, mIdentity);
+
+	//View
+	XMVECTOR eyePosition = XMVectorSet(5.0f, 3.0f, -10.0f, 1.0f);
+	XMVECTOR focusPoint = XMVectorZero();
+	XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMMATRIX mView = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+	DirectX::XMStoreFloat4x4(&mView_, mView);
+
+	//Projection
+	XMMATRIX mProjection = XMMatrixPerspectiveFovLH(0.25f * PI, windowWidth_ / windowHeight_, 1.0f, 1000.0f);
+	DirectX::XMStoreFloat4x4(&mProjection_, mProjection);
+	
+	////Calculate Matrix WVP
+	//mWVP_ = XMLoadFloat4x4(&mWorld_) * XMLoadFloat4x4(&mView_) * XMLoadFloat4x4(&mProjection_);
 }

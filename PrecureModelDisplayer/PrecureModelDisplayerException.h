@@ -41,4 +41,19 @@ class PMD_FailedQueryPerformanceCounter : public PrecureModelDisplayerException
 {
 };
 
+//Exception : Failed to Initialize Effect
+class PMD_FailedInitializeEffect : public PrecureModelDisplayerException
+{
+};
+
+//Exception : Failed to Create InputLayout
+class PMD_FailedCreateInputLayout : public PrecureModelDisplayerException
+{
+};
+
+//Exception : Failed to Create Buffer
+class PMD_FailedCreateBuffer : public PrecureModelDisplayerException
+{
+};
+
 #endif
