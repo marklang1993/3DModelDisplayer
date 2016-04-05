@@ -1,6 +1,7 @@
 #include "D3D11Graphics.h"
 #include "PrecureModelDisplayerException.h"
 #include "Library.h"
+#include "ObjFileReader.h"
 
 #include <vector>
 #include <fstream>
@@ -17,6 +18,7 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	renderTargetView_ = NULL;
 	stencilBuffer_ = NULL;
 	depthStencilView_ = NULL;
+	rasterizerState_ = NULL;
 
 	effect_ = NULL;
 	effectTechnique_ = NULL;
@@ -182,11 +184,29 @@ D3D11Graphics::D3D11Graphics(HWND hwnd)
 	initializeInputLayout_();
 
 	//9. Initialize Buffer
-	initializeVertexBuffer_();
-	initializeIndexBuffer_();
+	ObjFileReader* modelFile = new ObjFileReader("lovely_poseA_geo.obj");
+	initializeVertexBuffer_(modelFile);
+	initializeIndexBuffer_(modelFile);
+	delete modelFile;
 
 	//10. Initilize Matrix
 	initializeMatrix_();
+
+	//11. Initilize RasterizerState
+	D3D11_RASTERIZER_DESC rasterizerDesc;
+	rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+	rasterizerDesc.CullMode = D3D11_CULL_BACK;
+	rasterizerDesc.FrontCounterClockwise = false;
+	rasterizerDesc.DepthBias = 0;
+	rasterizerDesc.DepthBiasClamp = 0.0f;
+	rasterizerDesc.SlopeScaledDepthBias = 0.0f;
+	rasterizerDesc.DepthClipEnable = true;
+	rasterizerDesc.ScissorEnable = false;
+	rasterizerDesc.MultisampleEnable = true;
+	rasterizerDesc.AntialiasedLineEnable = false;
+
+	CheckHR(device_->CreateRasterizerState(&rasterizerDesc, &rasterizerState_), PMD_FailedCreateRasterizerState());
+	deviceContext_->RSSetState(rasterizerState_);
 }
 
 D3D11Graphics::~D3D11Graphics()
@@ -197,6 +217,7 @@ D3D11Graphics::~D3D11Graphics()
 	SafeRelease(renderTargetView_);
 	SafeRelease(stencilBuffer_);
 	SafeRelease(depthStencilView_);
+	SafeRelease(rasterizerState_);
 
 	SafeRelease(effect_);
 	//SafeRelease(effectTechnique_);
@@ -237,20 +258,20 @@ void D3D11Graphics::Render()
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
 		effectTechnique_->GetPassByIndex(p)->Apply(0, deviceContext_);
-		deviceContext_->DrawIndexed(36, 0, 0);
+		deviceContext_->DrawIndexed(indexSize, 0, 0);
 	}
 
 	swapChain_->Present(0, 0);
 }
 
-void D3D11Graphics::getCameraPos(int& rCamera, int& alphaCamera, int& betaCamera)
+void D3D11Graphics::getCameraPos(float& rCamera, int& alphaCamera, int& betaCamera)
 {
 	rCamera = rCamera_;
 	alphaCamera = alphaCamera_ / (PI / 180.0);
 	betaCamera = betaCamera_ / (PI / 180.0);
 }
 
-void D3D11Graphics::setCameraPos(int rCamera, int alphaCamera, int betaCamera)
+void D3D11Graphics::setCameraPos(float rCamera, int alphaCamera, int betaCamera)
 {
 	//Check Beta angle(Degree: -80 <= betaCamera <= 80)
 	if (betaCamera > 80)
@@ -317,29 +338,15 @@ void D3D11Graphics::initializeInputLayout_()
 	//deviceContext_->IASetInputLayout(inputLayout_);
 }
 
-void D3D11Graphics::initializeVertexBuffer_()
+void D3D11Graphics::initializeVertexBuffer_(ObjFileReader* modelFile)
 {
-	//Defein Vertex
-	Vertex vertex[]=
-	{
-		/*{ XMFLOAT3(1.0f, 0.0f, 0.0f), *(const XMFLOAT4*)&Colors::Red },
-		{ XMFLOAT3(0.0f, 0.0f, 0.0f), *(const XMFLOAT4*)&Colors::Green },
-		{ XMFLOAT3(0.0f, 1.0f, 0.0f), *(const XMFLOAT4*)&Colors::Blue },
-		{ XMFLOAT3(0.0f, 0.0f, 0.1f), *(const XMFLOAT4*)&Colors::Yellow }*/
-
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), *(const XMFLOAT4*)&Colors::White },
-		{ XMFLOAT3(-1.0f, +1.0f, -1.0f), *(const XMFLOAT4*)&Colors::Black },
-		{ XMFLOAT3(+1.0f, +1.0f, -1.0f), *(const XMFLOAT4*)&Colors::Red },
-		{ XMFLOAT3(+1.0f, -1.0f, -1.0f), *(const XMFLOAT4*)&Colors::Green },
-		{ XMFLOAT3(-1.0f, -1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Blue },
-		{ XMFLOAT3(-1.0f, +1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Yellow },
-		{ XMFLOAT3(+1.0f, +1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Red },
-		{ XMFLOAT3(+1.0f, -1.0f, +1.0f), *(const XMFLOAT4*)&Colors::Green }
-	};
+	//Define Vertex
+	std::vector<Vertex>* vertex;
+	modelFile->ParseVertex(&vertex);
 
 	//Create Vertex Buffer
 	D3D11_BUFFER_DESC bufferDesc;
-	bufferDesc.ByteWidth = sizeof(Vertex) * 8;
+	bufferDesc.ByteWidth = sizeof(Vertex) * vertex->size();
 	bufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bufferDesc.CPUAccessFlags = 0;
@@ -347,7 +354,7 @@ void D3D11Graphics::initializeVertexBuffer_()
 	bufferDesc.StructureByteStride = 0;
 
 	D3D11_SUBRESOURCE_DATA subresourceData;
-	subresourceData.pSysMem = vertex;
+	subresourceData.pSysMem = &(*vertex)[0];
 
 	CheckHR(device_->CreateBuffer(&bufferDesc, &subresourceData, &vertexBuffer_), PMD_FailedCreateBuffer());
 
@@ -357,44 +364,16 @@ void D3D11Graphics::initializeVertexBuffer_()
 	//deviceContext_->IASetVertexBuffers(0, 1, &vertexBuffer_, &stride, &offset);
 }
 
-void D3D11Graphics::initializeIndexBuffer_()
+void D3D11Graphics::initializeIndexBuffer_(ObjFileReader* modelFile)
 {
 	//Define Index
-	UINT index[] =
-	{
-		/*0, 1, 2,
-		0, 1, 3,
-		0, 3, 2,
-		1, 2, 3*/
+	std::vector<UINT>* index;
+	modelFile->ParseIndex(&index);
+	indexSize = index->size();
 
-		// front face
-		0, 1, 2,
-		0, 2, 3,
-
-		// back face
-		4, 6, 5,
-		4, 7, 6,
-
-		// left face
-		4, 5, 1,
-		4, 1, 0,
-
-		// right face
-		3, 2, 6,
-		3, 6, 7,
-
-		// top face
-		1, 5, 6,
-		1, 6, 2,
-
-		// bottom face
-		4, 0, 3,
-		4, 3, 7
-	};
-	
 	//Create Index Buffer
 	D3D11_BUFFER_DESC bufferDesc;
-	bufferDesc.ByteWidth = sizeof(UINT) * 36;
+	bufferDesc.ByteWidth = sizeof(UINT) * indexSize;
 	bufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	bufferDesc.CPUAccessFlags = 0;
@@ -402,7 +381,7 @@ void D3D11Graphics::initializeIndexBuffer_()
 	bufferDesc.StructureByteStride = 0;
 
 	D3D11_SUBRESOURCE_DATA subresourceData;
-	subresourceData.pSysMem = index;
+	subresourceData.pSysMem = &(*index)[0];
 
 	CheckHR(device_->CreateBuffer(&bufferDesc, &subresourceData, &indexBuffer_), PMD_FailedCreateBuffer());
 
@@ -413,11 +392,17 @@ void D3D11Graphics::initializeIndexBuffer_()
 void D3D11Graphics::initializeMatrix_()
 {
 	//World
-	XMMATRIX mIdentity = XMMatrixIdentity();
+	XMMATRIX mIdentity =
+	{
+		20.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 20.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 20.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
 	DirectX::XMStoreFloat4x4(&mWorld_, mIdentity);
 
 	//View
-	setCameraPos(10, -270, 30);
+	setCameraPos(15, -270, 30);
 
 	//Projection
 	XMMATRIX mProjection = XMMatrixPerspectiveFovLH(0.25f * PI, windowWidth_ / windowHeight_, 1.0f, 1000.0f);

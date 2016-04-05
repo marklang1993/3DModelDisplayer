@@ -81,6 +81,7 @@
     <ClCompile Include="D3D11Graphics.cpp" />
     <ClCompile Include="DisplayForm.cpp" />
     <ClCompile Include="GameTimer.cpp" />
+    <ClCompile Include="ObjFileReader.cpp" />
     <ClCompile Include="PrecureModelDisplayerException.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
@@ -90,6 +91,7 @@
     <ClInclude Include="DisplayForm.h" />
     <ClInclude Include="GameTimer.h" />
     <ClInclude Include="Library.h" />
+    <ClInclude Include="ObjFileReader.h" />
     <ClInclude Include="PrecureModelDisplayerException.h" />
   </ItemGroup>
   <ItemGroup>

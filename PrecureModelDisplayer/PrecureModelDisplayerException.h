@@ -56,4 +56,14 @@ class PMD_FailedCreateBuffer : public PrecureModelDisplayerException
 {
 };
 
+//Exception : Failed to Read Obj File
+class PMD_FailedReadObjFile : public PrecureModelDisplayerException
+{
+};
+
+//Exception : Failed to Read Obj File
+class PMD_FailedCreateRasterizerState : public PrecureModelDisplayerException
+{
+};
+
 #endif

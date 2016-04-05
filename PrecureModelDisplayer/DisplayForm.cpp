@@ -180,7 +180,7 @@ void DisplayForm::OnMouseMove(WPARAM button, int x, int y)
 		deltaMousePos.x = x - initMousPos_.x;
 		deltaMousePos.y = -(y - initMousPos_.y);
 		//Change Camera Position
-		int rCamera;
+		float rCamera;
 		int alphaCamera;
 		int betaCamera;
 		pGraphics_->getCameraPos(rCamera, alphaCamera, betaCamera);
@@ -194,7 +194,7 @@ void DisplayForm::OnMouseMove(WPARAM button, int x, int y)
 void DisplayForm::OnMouseWheel(int val)
 {
 	//Get Current Camera Position
-	int rCamera;
+	float rCamera;
 	int alphaCamera;
 	int betaCamera;
 	pGraphics_->getCameraPos(rCamera, alphaCamera, betaCamera);
@@ -202,17 +202,17 @@ void DisplayForm::OnMouseWheel(int val)
 	if (val > 0)		//Up: Zoom In
 	{
 		//Change Camera Position
-		if (rCamera > 1)
+		if (rCamera > 0.1f)
 		{
-			--rCamera;
+			rCamera -= 0.1f;
 		}
 	}
 	else if (val < 0)	//Up: Zoom Out
 	{
 		//Change Camera Position
-		if (rCamera < 200)
+		if (rCamera < 100.0f)
 		{
-			++rCamera;
+			rCamera += 0.1f;
 		}
 	}
 	//Set New Camera Position

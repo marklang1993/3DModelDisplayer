@@ -5,6 +5,7 @@
 #include "GameTimer.h"
 
 #include "Windows.h"
+#include <vector>
 
 class DisplayForm
 {
@@ -40,6 +41,7 @@ private:
 
 	//Helper Functions
 	void newWindow_();			// Initialize Window
+
 
 	//Event Handler
 	void OnMouseUp(WPARAM button, int x, int y);
